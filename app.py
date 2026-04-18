@@ -5,8 +5,10 @@ import requests
 import time
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from streamlit_autorefresh import st_autorefresh
+import numpy as np
+from sklearn.linear_model import LinearRegression
 
 st.set_page_config(
     page_title="War Era - Jet Market Analyzer", 
@@ -14,226 +16,171 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
-# ========== تحسينات إضافية للوضوح ==========
-st.markdown("""
-<style>
-    /* تحسين وضوح النصوص في الدارك مود */
-    body, .stApp, .main, .stMarkdown, .stText, p, div, span, label {
-        color: #FFFFFF !important;
-        font-size: 14px !important;
-    }
-    
-    /* تحسين الجداول - خلفية أفتح ونصوص بيضاء */
-    .stDataFrame {
-        background-color: #1e1e2e !important;
-    }
-    .stDataFrame table {
-        background-color: #1e1e2e !important;
-        color: #ffffff !important;
-        font-size: 14px !important;
-    }
-    .stDataFrame th {
-        background-color: #2d2d3d !important;
-        color: #00ff88 !important;
-        font-weight: bold !important;
-        font-size: 15px !important;
-        padding: 12px !important;
-    }
-    .stDataFrame td {
-        background-color: #1e1e2e !important;
-        color: #ffffff !important;
-        padding: 10px !important;
-        border-bottom: 1px solid #3d3d4d !important;
-    }
-    .stDataFrame tr:hover td {
-        background-color: #2d2d3d !important;
-    }
-    
-    /* تحسين الـ Metric Cards */
-    div[data-testid="stMetricValue"] {
-        color: #00ff88 !important;
-        font-size: 2rem !important;
-        font-weight: bold !important;
-        background: linear-gradient(135deg, #1e1e2e 0%, #2d2d3d 100%);
-        padding: 10px;
-        border-radius: 10px;
-        text-align: center;
-    }
-    div[data-testid="stMetricLabel"] {
-        color: #aaaaaa !important;
-        font-size: 0.9rem !important;
-        font-weight: bold !important;
-    }
-    div[data-testid="stMetricDelta"] {
-        color: #ff8888 !important;
-        font-size: 0.8rem !important;
-    }
-    
-    /* تحسين الـ Sidebar */
-    .css-1d391kg, .stSidebar {
-        background-color: #1a1a2a !important;
-    }
-    .stSidebar .stMarkdown, .stSidebar p, .stSidebar label {
-        color: #ffffff !important;
-    }
-    .stSidebar h1, .stSidebar h2, .stSidebar h3, .stSidebar h4 {
-        color: #00ff88 !important;
-    }
-    
-    /* تحسين الأزرار */
-    .stButton button {
-        background: linear-gradient(135deg, #ff4b4b 0%, #ff6b6b 100%) !important;
-        color: white !important;
-        font-weight: bold !important;
-        font-size: 14px !important;
-        border: none !important;
-        border-radius: 8px !important;
-        padding: 8px 16px !important;
-        transition: all 0.3s ease !important;
-    }
-    .stButton button:hover {
-        transform: scale(1.02);
-        box-shadow: 0 4px 12px rgba(255,75,75,0.3) !important;
-    }
-    
-    /* تحسين الـ Select Box */
-    .stSelectbox div[data-baseweb="select"] {
-        background-color: #2d2d3d !important;
-        border: 1px solid #4d4d5d !important;
-        border-radius: 8px !important;
-    }
-    .stSelectbox label {
-        color: #00ff88 !important;
-    }
-    
-    /* تحسين الـ Slider */
-    .stSlider label {
-        color: #00ff88 !important;
-    }
-    
-    /* تحسين الـ Number Input */
-    .stNumberInput input {
-        background-color: #2d2d3d !important;
-        color: white !important;
-        border: 1px solid #4d4d5d !important;
-        border-radius: 8px !important;
-    }
-    
-    /* تحسين التبويبات */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 16px;
-        background-color: #1a1a2a;
-        padding: 8px;
-        border-radius: 12px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        background-color: #2d2d3d !important;
-        color: white !important;
-        border-radius: 8px !important;
-        padding: 8px 20px !important;
-        font-weight: bold !important;
-        font-size: 14px !important;
-    }
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(135deg, #ff4b4b 0%, #ff6b6b 100%) !important;
-        color: white !important;
-    }
-    
-    /* تحسين الـ Expander */
-    .streamlit-expanderHeader {
-        background-color: #2d2d3d !important;
-        color: #00ff88 !important;
-        border-radius: 8px !important;
-        font-weight: bold !important;
-    }
-    
-    /* تحسين رسائل النجاح والتحذير */
-    .stAlert {
-        border-radius: 10px !important;
-        font-weight: bold !important;
-    }
-    .stSuccess {
-        background-color: #1e3a2e !important;
-        border-left: 4px solid #00ff88 !important;
-    }
-    .stWarning {
-        background-color: #3a2e1e !important;
-        border-left: 4px solid #ffaa00 !important;
-    }
-    .stError {
-        background-color: #3a1e1e !important;
-        border-left: 4px solid #ff4b4b !important;
-    }
-    
-    /* تحسين الكود والـ IDs */
-    code {
-        background-color: #2d2d3d !important;
-        color: #00ff88 !important;
-        padding: 2px 6px !important;
-        border-radius: 4px !important;
-        font-family: monospace !important;
-        font-size: 13px !important;
-    }
-    
-    /* تحسين الخطوط العربية */
-    * {
-        font-family: 'Segoe UI', 'Tahoma', 'Arial', sans-serif !important;
-    }
-    
-    /* تحسين صناديق التنبيه */
-    .alert-box {
-        background: linear-gradient(135deg, #2d2d3d 0%, #1e1e2e 100%);
-        border-left: 5px solid #ff4b4b;
-        padding: 15px;
-        border-radius: 12px;
-        margin: 15px 0;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-    }
-    .alert-box h3 {
-        color: #ff6b6b !important;
-        margin-top: 0 !important;
-    }
-    .alert-box p {
-        color: #ffffff !important;
-        font-size: 14px !important;
-    }
-</style>
-""", unsafe_allow_html=True)
 
 YOUR_JWT = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7Il9pZCI6IjY5Y2VlY2Y1MTk3Zjg0NWZjOWZlZGU1YyJ9LCJpYXQiOjE3NzUxNjg3NTcsImV4cCI6MTc3Nzc2MDc1N30.nIKi8ohQAYsAVXQL9_rlRUr93TDg-G-DVOCQOrRdOtY"
 
-# ========== نظام التنبيهات ==========
-ALERTS_FILE = "data/alerts.json"
+# ========== إعدادات الـ Theme ==========
+st.markdown("""
+<style>
+    .stApp { background-color: #000000 !important; }
+    .stDataFrame tbody td, .stDataFrame thead th { color: #FFFFFF !important; }
+    .stDataFrame tbody tr td { background-color: #1a1a2e !important; border-bottom: 1px solid #2a2a4a !important; }
+    .stDataFrame tbody tr:nth-child(even) td { background-color: #222240 !important; }
+    .stDataFrame thead tr th { background-color: #2a2a4a !important; color: #FFFFFF !important; }
+    td:first-child { color: #00FF88 !important; font-weight: bold !important; }
+    td:nth-child(2) { color: #FFB347 !important; font-weight: bold !important; }
+    td:nth-child(3) { color: #FF6B6B !important; font-weight: bold !important; }
+    td:nth-child(4) { color: #4ECDC4 !important; font-weight: bold !important; }
+    div[data-testid="stMetricValue"] { background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%) !important; color: #00ff00 !important; }
+    h1 { color: #ff6666 !important; text-align: center !important; }
+    .stAlert { border-radius: 10px !important; }
+    .stSuccess { background-color: #0a2a0a !important; border-left: 5px solid #00ff00 !important; }
+    .stWarning { background-color: #2a2a0a !important; border-left: 5px solid #ffaa00 !important; }
+    .stError { background-color: #2a0a0a !important; border-left: 5px solid #ff4444 !important; }
+    .stInfo { background-color: #0a2a2a !important; border-left: 5px solid #44aaff !important; }
+</style>
+""", unsafe_allow_html=True)
 
-def load_alerts():
-    """تحميل التنبيهات السابقة"""
-    if os.path.exists(ALERTS_FILE):
-        with open(ALERTS_FILE, 'r') as f:
-            return json.load(f)
-    return {"last_scan": None, "best_deals": [], "notified_ids": []}
+# ========== دوال JSON الآمنة ==========
+import numpy as np
+import pandas as pd
 
-def save_alerts(alerts):
-    """حفظ التنبيهات"""
+PRICE_HISTORY_FILE = "data/price_history.json"
+ALERTS_HISTORY_FILE = "data/alerts_history.json"
+
+def convert_to_serializable(obj):
+    """تحويل أي كائن غير JSONable إلى JSONable"""
+    if isinstance(obj, (np.int64, np.int32, np.int16, np.int8)):
+        return int(obj)
+    elif isinstance(obj, (np.float64, np.float32, np.float16)):
+        return float(obj)
+    elif isinstance(obj, np.ndarray):
+        return obj.tolist()
+    elif isinstance(obj, pd.Series):
+        return obj.to_list()
+    elif isinstance(obj, pd.Timestamp):
+        return obj.isoformat()
+    return obj
+
+def load_price_history():
+    """تحميل تاريخ الأسعار السابق"""
     os.makedirs("data", exist_ok=True)
-    with open(ALERTS_FILE, 'w') as f:
-        json.dump(alerts, f, indent=2)
+    
+    if not os.path.exists(PRICE_HISTORY_FILE):
+        save_price_history({})
+        return {}
+    
+    try:
+        with open(PRICE_HISTORY_FILE, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+            if not content:
+                return {}
+            return json.loads(content)
+    except:
+        save_price_history({})
+        return {}
 
-def check_new_deals(current_best, alerts):
-    """التحقق من وجود صفقات جديدة"""
-    new_deals = []
-    for deal in current_best:
-        deal_id = f"{deal['price']}_{deal['user']}"
-        if deal_id not in alerts['notified_ids']:
-            # تحقق إذا كانت الصفقة أفضل من آخر صفقة تم التنبيه عليها
-            if len(alerts['best_deals']) > 0:
-                old_best_price = min([d['price'] for d in alerts['best_deals']])
-                if deal['price'] < old_best_price * 0.9:  # أرخص ب 10%
-                    new_deals.append(deal)
-            else:
-                new_deals.append(deal)
-    return new_deals
+def save_price_history(history):
+    """حفظ تاريخ الأسعار"""
+    try:
+        os.makedirs("data", exist_ok=True)
+        with open(PRICE_HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(history, f, indent=2, ensure_ascii=False, default=convert_to_serializable)
+        return True
+    except Exception as e:
+        st.error(f"خطأ في حفظ الملف: {e}")
+        return False
 
-# دالة تحويل الوقت
+def load_alerts_history():
+    """تحميل تاريخ التنبيهات"""
+    os.makedirs("data", exist_ok=True)
+    
+    if not os.path.exists(ALERTS_HISTORY_FILE):
+        save_alerts_history({"alerts_sent": []})
+        return {"alerts_sent": []}
+    
+    try:
+        with open(ALERTS_HISTORY_FILE, 'r', encoding='utf-8') as f:
+            content = f.read().strip()
+            if not content:
+                return {"alerts_sent": []}
+            data = json.loads(content)
+            if 'alerts_sent' not in data:
+                data['alerts_sent'] = []
+            return data
+    except:
+        save_alerts_history({"alerts_sent": []})
+        return {"alerts_sent": []}
+
+def save_alerts_history(alerts):
+    """حفظ تاريخ التنبيهات"""
+    try:
+        os.makedirs("data", exist_ok=True)
+        with open(ALERTS_HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(alerts, f, indent=2, ensure_ascii=False, default=convert_to_serializable)
+        return True
+    except Exception as e:
+        st.error(f"خطأ في حفظ ملف التنبيهات: {e}")
+        return False
+
+def categorize_jet(jet):
+    attack_group = round(jet['attack'] / 5) * 5
+    critical_group = round(jet['critical'] / 2) * 2
+    return f"A{attack_group}_C{critical_group}"
+
+def predict_price(history_prices):
+    """توقع السعر القادم بناءً على الاتجاه"""
+    if len(history_prices) < 3:
+        return None, None
+    
+    X = np.array(range(len(history_prices))).reshape(-1, 1)
+    y = np.array(history_prices)
+    
+    model = LinearRegression()
+    model.fit(X, y)
+    
+    next_price = model.predict([[len(history_prices)]])[0]
+    trend = "صاعد" if model.coef_[0] > 0 else "هابط"
+    
+    return next_price, trend
+
+def check_price_alert(jet_category, current_price, price_history):
+    """تنبيه تلقائي عند نزول السعر عن أقل سعر"""
+    if jet_category in price_history and len(price_history[jet_category]) > 0:
+        history = price_history[jet_category]
+        min_price = min([h['price'] for h in history])
+        
+        if current_price < min_price:
+            return True, min_price
+    return False, None
+
+def compare_sellers(jet_category, price_history, current_user=None):
+    """مقارنة البائعين لنفس نوع الطائرة"""
+    if jet_category not in price_history:
+        return None
+    
+    sellers = {}
+    for record in price_history[jet_category]:
+        user = record.get('user', 'unknown')
+        if user not in sellers:
+            sellers[user] = {'prices': [], 'count': 0, 'last_seen': None}
+        sellers[user]['prices'].append(record['price'])
+        sellers[user]['count'] += 1
+        sellers[user]['last_seen'] = record.get('time', '')
+    
+    # حساب المتوسط لكل بائع
+    seller_stats = []
+    for user, data in sellers.items():
+        seller_stats.append({
+            'user': user,
+            'avg_price': sum(data['prices']) / len(data['prices']),
+            'min_price': min(data['prices']),
+            'max_price': max(data['prices']),
+            'count': data['count']
+        })
+    
+    return pd.DataFrame(seller_stats).sort_values('avg_price')
+
 def time_ago(created_at_str):
     try:
         created_at = datetime.fromisoformat(created_at_str.replace('Z', '+00:00'))
@@ -252,9 +199,8 @@ def time_ago(created_at_str):
     except:
         return "غير معروف"
 
-@st.cache_data(ttl=60, show_spinner=False)  # خفضت الـ TTL عشان التنبيهات أسرع
+@st.cache_data(ttl=60, show_spinner=False)
 def fetch_all_offers(max_pages=10):
-    """جلب كل العروض من السوق"""
     all_items = []
     cursor = None
     API_URL = "https://api4.warera.io/trpc/itemOffer.getItemOffers,transaction.getPaginatedTransactions?batch=1"
@@ -320,37 +266,18 @@ def fetch_all_offers(max_pages=10):
     
     return all_items
 
-# ========== واجهة المستخدم ==========
-st.title("✈️ War Era - Jet Market Analyzer")
-st.markdown("تحليل متقدم لسوق الطائرات **JET** - اكتشف أفضل الصفقات بناءً على الجودة والسعر")
+# تحديث تلقائي كل 30 ثانية
+st_autorefresh(interval=30000, limit=100, key="auto_refresh")
 
-# ========== نظام التحديث التلقائي والتنبيهات ==========
-# تحديث تلقائي كل 30 ثانية (للتنبيهات)
-count = st_autorefresh(interval=30000, limit=100, key="auto_refresh")
+st.title("✈️ War Era - Jet Market Analyzer")
+st.markdown("تحليل متقدم لسوق الطائرات **JET** - اكتشف أفضل الصفقات")
 
 # Sidebar
 with st.sidebar:
     st.header("⚙️ إعدادات التحليل")
-    max_pages = st.slider("عدد صفحات الجلب", min_value=1, max_value=20, value=10, 
-                          help="كل صفحة = 50 طائرة")
-    min_quality = st.slider("الحد الأدنى للجودة (%)", min_value=0, max_value=100, value=0)
-    max_price = st.number_input("الحد الأقصى للسعر", min_value=0, value=5000, step=500)
-    
-    st.divider()
-    
-    # ========== إعدادات التنبيهات ==========
-    st.header("🔔 نظام التنبيهات")
-    
-    enable_alerts = st.checkbox("تفعيل التنبيهات", value=True)
-    alert_price_threshold = st.number_input("نبهني لو السعر أقل من", min_value=0, value=500, step=50)
-    alert_quality_threshold = st.slider("وجودة أكبر من", 0, 100, 70)
-    
-    if st.button("🔕 مسح التنبيهات السابقة", use_container_width=True):
-        alerts = load_alerts()
-        alerts['notified_ids'] = []
-        alerts['best_deals'] = []
-        save_alerts(alerts)
-        st.success("✅ تم مسح التنبيهات!")
+    max_pages = st.slider("عدد صفحات الجلب", 1, 20, 10)
+    min_quality = st.slider("الحد الأدنى للجودة (%)", 0, 100, 0)
+    max_price = st.number_input("الحد الأقصى للسعر", 0, 5000, 5000, step=500)
     
     st.divider()
     
@@ -371,62 +298,9 @@ if not all_offers:
     st.error("❌ لا توجد عروض للطائرات حالياً")
     st.stop()
 
-# تحويل إلى DataFrame
 df = pd.DataFrame(all_offers)
-
-# تطبيق الفلاتر
 df_filtered = df[(df['quality_score'] >= min_quality) & (df['price'] <= max_price)]
 
-# ========== نظام التنبيهات ==========
-if enable_alerts:
-    alerts = load_alerts()
-    
-    # البحث عن صفقات ممتازة
-    excellent_deals = df_filtered[
-        (df_filtered['price'] < alert_price_threshold) & 
-        (df_filtered['quality_score'] > alert_quality_threshold)
-    ]
-    
-    if len(excellent_deals) > 0:
-        # ترتيب حسب الأفضل
-        excellent_deals = excellent_deals.sort_values('value_for_money', ascending=False)
-        
-        # التحقق من الصفقات الجديدة
-        current_best = excellent_deals.head(5).to_dict('records')
-        new_deals = check_new_deals(current_best, alerts)
-        
-        if new_deals:
-            # عرض تنبيه في الصفحة
-            for deal in new_deals:
-                with st.container():
-                    st.markdown(f"""
-                    <div class="alert-box" style="border-left-color: #ff4b4b; background: linear-gradient(135deg, #2d2d2d 0%, #1e1e1e 100%);">
-                        <h3 style="color: #ff4b4b; margin: 0;">🔔 صفقة جديدة ممتازة!</h3>
-                        <hr style="margin: 10px 0;">
-                        <p style="font-size: 1.2rem; margin: 5px 0;">💰 <strong style="color: #00ff00;">${deal['price']:,}</strong> - جودة <strong style="color: #ffa500;">{deal['quality_score']}%</strong></p>
-                        <p style="margin: 5px 0;">⚔️ Attack: {deal['attack']} | 🎯 Critical: {deal['critical']}%</p>
-                        <p style="margin: 5px 0;">👤 البائع: <code style="background: #000; padding: 2px 6px; border-radius: 4px;">{deal['user']}</code></p>
-                        <p style="margin: 5px 0;">🕐 منذ {deal['time_ago']}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # إضافة زر نسخ ID
-                    if st.button(f"📋 نسخ ID البائع - {deal['user']}", key=f"copy_{deal['user']}_{deal['price']}"):
-                        st.write(f"✅ تم نسخ: `{deal['user']}`")
-                        st.balloons()
-            
-            # تحديث التنبيهات
-            alerts['last_scan'] = datetime.now().isoformat()
-            alerts['best_deals'] = current_best
-            for deal in new_deals:
-                alerts['notified_ids'].append(f"{deal['price']}_{deal['user']}")
-            save_alerts(alerts)
-    
-    # عرض آخر تحديث للتنبيهات
-    if alerts['last_scan']:
-        st.info(f"🕐 آخر تحديث للتنبيهات: {datetime.fromisoformat(alerts['last_scan']).strftime('%H:%M:%S')}")
-
-# الترتيب
 if sort_by == "القيمة مقابل السعر":
     df_sorted = df_filtered.sort_values('value_for_money', ascending=False)
 elif sort_by == "الجودة":
@@ -438,7 +312,7 @@ elif sort_by == "السعر (أعلى سعر أولاً)":
 else:
     df_sorted = df_filtered.sort_values('createdAt', ascending=False)
 
-# إحصائيات في الـ sidebar
+# إحصائيات sidebar
 with st.sidebar:
     st.divider()
     st.header("📊 إحصائيات سريعة")
@@ -447,33 +321,21 @@ with st.sidebar:
         st.metric("أقل سعر", f"${df_filtered['price'].min():,}")
         st.metric("أعلى جودة", f"{df_filtered['quality_score'].max():.1f}%")
         st.metric("متوسط السعر", f"${df_filtered['price'].mean():,.0f}")
-        
-        # تحذير إذا فيه صفقة ممتازة
-        excellent = df_filtered[(df_filtered['price'] < 600) & (df_filtered['quality_score'] > 75)]
-        if len(excellent) > 0:
-            st.warning(f"⚠️ في {len(excellent)} صفقة ممتازة! راجع التبويبات")
     
-    # توصية سريعة
-    st.divider()
-    st.header("🎯 التوصية")
     good_deals = df_filtered[df_filtered['quality_score'] >= 60]
     if len(good_deals) > 0:
         best = good_deals.loc[good_deals['value_for_money'].idxmax()]
-        st.success(f"**أفضل صفقة:**\n\n💰 ${best['price']:,}\n⚔️ Attack: {best['attack']}\n🎯 Critical: {best['critical']}%\n📊 جودة: {best['quality_score']}%")
-    else:
-        st.warning("لا توجد طائرات بجودة عالية حالياً")
+        st.success(f"**أفضل صفقة:**\n💰 ${best['price']:,}\n⚔️ {best['attack']}\n🎯 {best['critical']}%\n📊 {best['quality_score']}%")
 
 # ========== تبويبات ==========
-tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 جدول الطائرات", "🏆 أفضل الصفقات", "⭐ أفضل جودة", "🔔 التنبيهات", "📈 تحليلات"])
+tab1, tab2, tab3, tab4, tab5 = st.tabs(["📋 جدول الطائرات", "🏆 أفضل الصفقات", "⭐ أفضل جودة", "📊 تحليل الأسعار", "🔔 التنبيهات"])
 
-# ========== TAB 1: جدول الطائرات ==========
+# TAB 1: جدول الطائرات
 with tab1:
     st.subheader(f"📋 عرض {len(df_sorted)} طائرة")
-    
     display_df = df_sorted[['price', 'attack', 'critical', 'quality_score', 'value_for_money', 'user', 'time_ago']].copy()
     display_df.columns = ['السعر', 'الهجوم', 'الكريتيكال%', 'الجودة%', 'القيمة/السعر', 'البائع', 'منذ']
     
-    # استخدام data_editor بدل dataframe
     st.data_editor(
         display_df,
         column_config={
@@ -482,8 +344,6 @@ with tab1:
             "الكريتيكال%": st.column_config.NumberColumn("🎯 الكريتيكال", format="%.1f %%"),
             "الجودة%": st.column_config.ProgressColumn("📊 الجودة", format="%.1f %%", min_value=0, max_value=100),
             "القيمة/السعر": st.column_config.NumberColumn("💎 القيمة", format="%.2f"),
-            "البائع": st.column_config.TextColumn("👤 البائع"),
-            "منذ": st.column_config.TextColumn("🕐 منذ"),
         },
         use_container_width=True,
         height=500,
@@ -491,110 +351,207 @@ with tab1:
         disabled=True
     )
 
-# ========== TAB 2: أفضل الصفقات ==========
+# TAB 2: أفضل الصفقات
 with tab2:
-    st.subheader("🏆 أفضل 10 صفقات (أعلى قيمة مقابل السعر)")
-    
+    st.subheader("🏆 أفضل 10 صفقات")
     best_value = df_sorted.nlargest(10, 'value_for_money')
-    
     for i, row in best_value.iterrows():
         with st.container(border=True):
             col1, col2 = st.columns([3, 1])
             with col1:
-                st.write(f"**{i+1}. 💰 السعر: ${row['price']:,}** (منذ {row['time_ago']})")
-                st.write(f"   ⚔️ Attack: {row['attack']} / 300 ({row['attack_score']}% من max)")
-                st.write(f"   🎯 Critical: {row['critical']}% / 50% ({row['critical_score']}% من max)")
+                st.write(f"**{i+1}. 💰 ${row['price']:,}** (منذ {row['time_ago']})")
+                st.write(f"⚔️ Attack: {row['attack']} | 🎯 Critical: {row['critical']}%")
             with col2:
                 st.metric("الجودة", f"{row['quality_score']}%")
-                st.metric("القيمة", f"{row['value_for_money']:.2f}")
-            st.caption(f"👤 البائع: {row['user']}")
+            st.caption(f"👤 {row['user']}")
 
-# ========== TAB 3: أفضل جودة ==========
+# TAB 3: أفضل جودة
 with tab3:
-    st.subheader("⭐ أفضل 10 طائرات من حيث الجودة")
-    
+    st.subheader("⭐ أفضل 10 طائرات جودة")
     best_quality = df_sorted.nlargest(10, 'quality_score')
-    
     for i, row in best_quality.iterrows():
         with st.container(border=True):
-            col1, col2 = st.columns([3, 1])
-            with col1:
-                st.write(f"**{i+1}. ⚔️ Attack: {row['attack']} | 🎯 Critical: {row['critical']}%**")
-                st.write(f"   💰 السعر: ${row['price']:,}")
-                st.write(f"   🕐 منذ {row['time_ago']}")
-            with col2:
-                st.metric("الجودة", f"{row['quality_score']}%")
-            st.caption(f"👤 البائع: {row['user']}")
-
-# ========== TAB 4: التنبيهات النشطة ==========
+            st.write(f"**{i+1}. ⚔️ {row['attack']} | 🎯 {row['critical']}%**")
+            st.write(f"💰 ${row['price']:,} | 🕐 {row['time_ago']}")
+            st.caption(f"👤 {row['user']}")
+            
+# TAB 4: تحليل الأسعار (التطويرات الثلاثة)
 with tab4:
-    st.subheader("🔔 التنبيهات النشطة")
+    st.subheader("📊 تحليل الأسعار التاريخي")
     
-    st.info(f"""
-    **إعدادات التنبيهات الحالية:**
-    - ✅ التنبيه مفعل: {enable_alerts}
-    - 💰 سعر أقل من: ${alert_price_threshold}
-    - ⭐ جودة أكبر من: {alert_quality_threshold}%
-    """)
+    # تحميل التاريخ
+    price_history = load_price_history()
+    alerts_history = load_alerts_history()
     
-    # عرض الصفقات التي تحقق التنبيهات
-    active_alerts = df_filtered[
-        (df_filtered['price'] < alert_price_threshold) & 
-        (df_filtered['quality_score'] > alert_quality_threshold)
+    # اختيار طائرة للتحليل - طريقة بسيطة ومضمونة
+    temp_df = df_sorted.head(30).copy()
+    temp_df['display'] = temp_df.apply(
+        lambda x: f"💰 ${x['price']} | ⚔️ {x['attack']} | 🎯 {x['critical']}% | 👤 {x['user']}", 
+        axis=1
+    )
+    
+    selected_display = st.selectbox(
+        "اختر طائرة لتحليل تاريخ أسعارها:",
+        options=temp_df['display'].tolist()
+    )
+    
+    if selected_display:
+        jet = temp_df[temp_df['display'] == selected_display].iloc[0]
+        jet_category = categorize_jet(jet)
+        current_price = jet['price']
+        current_time = datetime.now().isoformat()
+        
+        # تسجيل السعر الحالي
+        if jet_category not in price_history:
+            price_history[jet_category] = []
+        
+        # تجنب التكرار لنفس البائع والسعر
+        is_duplicate = False
+        for record in price_history[jet_category][-5:]:
+            if record.get('user') == jet['user'] and record['price'] == current_price:
+                is_duplicate = True
+                break
+        
+        if not is_duplicate:
+            price_history[jet_category].append({
+                'price': current_price,
+                'time': current_time,
+                'user': jet['user'],
+                'attack': jet['attack'],
+                'critical': jet['critical']
+            })
+            price_history[jet_category] = price_history[jet_category][-50:]
+            save_price_history(price_history)
+        
+        # ===== 1. تنبيه تلقائي =====
+        is_alert, min_price = check_price_alert(jet_category, current_price, price_history)
+        
+        if is_alert:
+            st.success(f"🔔 **تنبيه!** هذا أقل سعر شوهد لهذا النوع من الطائرات! (كان أقل سعر سابق ${min_price})")
+            # تحديث سجل التنبيهات
+            if 'alerts_sent' not in alerts_history:
+                alerts_history['alerts_sent'] = []
+            alert_id = f"{jet_category}_{current_price}_{jet['user']}"
+            if alert_id not in alerts_history['alerts_sent']:
+                alerts_history['alerts_sent'].append(alert_id)
+                save_alerts_history(alerts_history)
+        
+        # عرض الإحصائيات الأساسية
+        history = price_history[jet_category]
+        prices = [h['price'] for h in history]
+        
+        min_price_hist = min(prices)
+        max_price_hist = max(prices)
+        avg_price_hist = sum(prices) / len(prices)
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("💰 السعر الحالي", f"${current_price}")
+        with col2:
+            delta = ((current_price - min_price_hist) / min_price_hist * 100) if current_price > min_price_hist else 0
+            st.metric("📉 أقل سعر", f"${min_price_hist}", delta=f"-{delta:.1f}%" if delta > 0 else "أقل سعر!")
+        with col3:
+            st.metric("📈 أعلى سعر", f"${max_price_hist}")
+        with col4:
+            st.metric("📊 المتوسط", f"${avg_price_hist:.0f}")
+        
+        # ===== 2. توقعات الأسعار =====
+        next_price, trend = predict_price(prices)
+        if next_price:
+            st.info(f"📈 **توقع السعر القادم:** ${next_price:.0f} (اتجاه {trend})")
+            if trend == "هابط" and next_price < current_price:
+                st.warning("⚠️ التوقعات تشير إلى انخفاض الأسعار قريباً - الأفضل الانتظار")
+            elif trend == "صاعد" and next_price > current_price:
+                st.success("✅ التوقعات تشير إلى ارتفاع الأسعار - السعر الحالي مناسب")
+        
+        # ===== 3. مقارنة البائعين =====
+        st.subheader("🏪 مقارنة البائعين لهذا النوع من الطائرات")
+        seller_comparison = compare_sellers(jet_category, price_history, jet['user'])
+        
+        if seller_comparison is not None and len(seller_comparison) > 0:
+            st.dataframe(
+                seller_comparison.head(10),
+                column_config={
+                    "user": "👤 البائع",
+                    "avg_price": st.column_config.NumberColumn("💰 متوسط السعر", format="$ %.0f"),
+                    "min_price": st.column_config.NumberColumn("📉 أقل سعر", format="$ %.0f"),
+                    "max_price": st.column_config.NumberColumn("📈 أعلى سعر", format="$ %.0f"),
+                    "count": "📊 عدد الصفقات"
+                },
+                use_container_width=True
+            )
+            
+            # تمييز البائع الحالي
+            current_seller = jet['user']
+            seller_row = seller_comparison[seller_comparison['user'] == current_seller]
+            if len(seller_row) > 0:
+                avg_seller = seller_row.iloc[0]['avg_price']
+                if current_price < avg_seller:
+                    st.success(f"✅ البائع الحالي ({current_seller}) أرخص من متوسطه السابق (${avg_seller:.0f})")
+                elif current_price > avg_seller:
+                    st.warning(f"⚠️ البائع الحالي ({current_seller}) أغلى من متوسطه السابق (${avg_seller:.0f})")
+        
+        # تقييم الصفقة
+        st.subheader("🎯 تقييم الصفقة")
+        if current_price <= min_price_hist * 1.05:
+            st.success("✅ **صفقة ممتازة!** هذا أقل سعر أو قريب جداً من أقل سعر شوهد")
+        elif current_price <= avg_price_hist:
+            st.info("👍 **صفقة جيدة** - السعر أقل من المتوسط التاريخي")
+        elif current_price <= max_price_hist * 0.8:
+            st.warning("⚠️ **سعر متوسط** - ممكن تلاقي أحسن لو استنيت")
+        else:
+            st.error("❌ **سعر مرتفع** - الأفضل تستنى")
+        
+        # رسم بياني لتاريخ الأسعار
+        st.subheader("📈 تطور الأسعار")
+        history_df = pd.DataFrame(sorted(history, key=lambda x: x['time']))
+        history_df['time_dt'] = pd.to_datetime(history_df['time'])
+        
+        fig_history = px.line(
+            history_df, 
+            x='time_dt', 
+            y='price',
+            title=f'تاريخ أسعار الطائرات (Attack {jet["attack"]} - Critical {jet["critical"]}%)',
+            markers=True
+        )
+        fig_history.add_hline(y=current_price, line_dash="dash", line_color="red", annotation_text="السعر الحالي")
+        fig_history.add_hline(y=min_price_hist, line_dash="dash", line_color="green", annotation_text="أقل سعر")
+        fig_history.add_hrect(y0=avg_price_hist*0.9, y1=avg_price_hist*1.1, line_width=0, fillcolor="gray", opacity=0.2, annotation_text="منطقة المتوسط")
+        fig_history.update_layout(template='plotly_dark')
+        st.plotly_chart(fig_history, use_container_width=True)
+        
+        # آخر 10 أسعار
+        with st.expander("📜 آخر 10 أسعار شوهدت"):
+            for h in sorted(history, key=lambda x: x['time'], reverse=True)[:10]:
+                time_ago_str = time_ago(h['time'])
+                emoji = "🟢" if h['price'] <= min_price_hist * 1.05 else "🟡" if h['price'] <= avg_price_hist else "🔴"
+                st.write(f"{emoji} ${h['price']} - منذ {time_ago_str} - البائع: {h['user']}")
+
+# TAB 5: التنبيهات
+with tab5:
+    st.subheader("🔔 التنبيهات المسجلة")
+    
+    price_history = load_price_history()
+    
+    # البحث عن صفقات ممتازة حالياً
+    st.subheader("🎯 صفقات ممتازة حالياً")
+    excellent_deals = df_filtered[
+        (df_filtered['price'] < 600) & 
+        (df_filtered['quality_score'] > 70)
     ].sort_values('value_for_money', ascending=False)
     
-    if len(active_alerts) > 0:
-        st.success(f"🎯 يوجد {len(active_alerts)} صفقة تحقق شروط التنبيه!")
-        for idx, row in active_alerts.head(10).iterrows():
+    if len(excellent_deals) > 0:
+        for _, row in excellent_deals.head(10).iterrows():
             with st.container(border=True):
                 st.write(f"**💰 ${row['price']:,}** - جودة {row['quality_score']}% - Attack {row['attack']} - Critical {row['critical']}%")
-                st.caption(f"👤 البائع: {row['user']} | 🕐 {row['time_ago']}")
+                st.caption(f"👤 {row['user']} | 🕐 {row['time_ago']}")
     else:
-        st.warning("❌ لا توجد صفقات تحقق شروط التنبيه حالياً")
-
-# ========== TAB 5: تحليلات ==========
-with tab5:
-    st.subheader("📈 تحليلات متقدمة")
+        st.info("لا توجد صفقات ممتازة حالياً")
     
-    fig_scatter = px.scatter(
-        df_filtered,
-        x='price',
-        y='quality_score',
-        size='attack',
-        color='critical',
-        hover_data=['user', 'value_for_money'],
-        title='العلاقة بين السعر وجودة الطائرة',
-        labels={'price': 'السعر ($)', 'quality_score': 'الجودة (%)'}
-    )
-    fig_scatter.update_layout(template='plotly_dark')
-    st.plotly_chart(fig_scatter, use_container_width=True)
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        fig_hist_price = px.histogram(df_filtered, x='price', nbins=30, title='توزيع الأسعار')
-        fig_hist_price.update_layout(template='plotly_dark')
-        st.plotly_chart(fig_hist_price, use_container_width=True)
-    
-    with col2:
-        fig_hist_quality = px.histogram(df_filtered, x='quality_score', nbins=20, title='توزيع الجودة')
-        fig_hist_quality.update_layout(template='plotly_dark')
-        st.plotly_chart(fig_hist_quality, use_container_width=True)
-
-# ========== التوصية النهائية ==========
-st.divider()
-st.subheader("🎯 التوصية النهائية")
-
-good_deals = df_filtered[df_filtered['quality_score'] >= 60]
-if len(good_deals) > 0:
-    best_recommendation = good_deals.loc[good_deals['value_for_money'].idxmax()]
-    st.success(f"""
-    ✅ **أفضل صفقة حالياً (جودة عالية + سعر مناسب):**
-    - 💰 سعر الشراء: ${best_recommendation['price']:,} (منذ {best_recommendation['time_ago']})
-    - ⚔️ Attack: {best_recommendation['attack']} / 300
-    - 🎯 Critical: {best_recommendation['critical']}% / 50%
-    - 📊 جودة الطائرة: {best_recommendation['quality_score']}%
-    - 👤 البائع: {best_recommendation['user']}
-    """)
-else:
-    st.warning("⚠️ لا توجد طائرات بجودة عالية حالياً (جودة ≥ 60%)")
+    # تنبيهات تاريخية
+    st.subheader("📋 تنبيهات سابقة")
+    alerts_history = load_alerts_history()
+    if alerts_history.get('alerts_sent'):
+        st.write(f"عدد التنبيهات المسجلة: {len(alerts_history['alerts_sent'])}")
+    else:
+        st.write("لا توجد تنبيهات مسجلة بعد")
